@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management Program</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            direction: ltr;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f4f7; /* Calm background */
+        }
+
+        .container {
+            margin-top: 50px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="text"], input[type="date"], input[type="number"] {
+            padding: 10px;
+            margin: 10px 0;
+            width: 80%;
+            max-width: 300px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 80%;
+        }
+
+        th, td {
+            padding: 5px 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+            font-size: 14px;
+        }
+
+        .dark-red {
+            color: #8B0000;
+        }
+
+        .dark-yellow {
+            color: #FFA500;
+        }
+
+        .dark-green {
+            color: #006400;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu" class="container">
+        <h1>Main Menu</h1>
+        <button onclick="showAddProduct()">Add Product</button>
+        <button onclick="showProducts()">View Products</button>
+        <button onclick="showExpiredProducts()">Expired Products</button>
+        <button onclick="showSearch()">Search Interface</button>
+    </div>
+
+    <div id="add-product" class="container hidden">
+        <h1>Add Product</h1>
+        <label>Product Name</label><br>
+        <input type="text" id="product-name"><br>
+        <label>Product Number</label><br>
+        <input type="number" id="product-number"><br>
+        <label>Expiry Date</label><br>
+        <input type="date" id="expiry-date"><br>
+        <button onclick="submitProduct()">Submit Data</button>
+        <button onclick="goBack()">Back</button>
+    </div>
+
+    <div id="view-products" class="container hidden">
+        <h1>View Products</h1>
+        <button onclick="goBack()">Back</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Product Number</th>
+                    <th>Expiry Date</th>
+                    <th>Days Remaining</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="products-list"></tbody>
+        </table>
+    </div>
+
+    <div id="expired-products" class="container hidden">
+        <h1>Expired Products</h1>
+        <button onclick="goBack()">Back</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Product Number</th>
+                    <th>Expiry Date</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="expired-products-list"></tbody>
+        </table>
+    </div>
+
+    <div id="search" class="container hidden">
+        <h1>Search Interface</h1>
+        <input type="number" id="search-number" placeholder="Enter product number to search">
+        <button onclick="searchProduct()">Search</button>
+        <button onclick="goBack()">Back</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>Product Number</th>
+                    <th>Expiry Date</th>
+                    <th>Days Remaining</th>
+                </tr>
+            </thead>
+            <tbody id="search-results"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let products = JSON.parse(localStorage.getItem('products')) || [];
+        let expiredProducts = JSON.parse(localStorage.getItem('expiredProducts')) || [];
+
+        function showAddProduct() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('add-product').classList.remove('hidden');
+        }
+
+        function showProducts() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('view-products').classList.remove('hidden');
+            updateProductTable();
+        }
+
+        function showExpiredProducts() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('expired-products').classList.remove('hidden');
+            showExpiredProductTable();
+        }
+
+        function showSearch() {
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('search').classList.remove('hidden');
+        }
+
+        function submitProduct() {
+            const name = document.getElementById('product-name').value;
+            const number = document.getElementById('product-number').value;
+            const expiry = document.getElementById('expiry-date').value;
+
+            const existingProduct = products.find(product => product.number === number && product.expiry === expiry);
+
+            if (existingProduct) {
+                alert('This product already exists!');
+                return;
+            }
+
+            if (name && number && expiry) {
+                products.push({ name, number, expiry });
+                localStorage.setItem('products', JSON.stringify(products));
+
+                document.getElementById('product-name').value = '';
+                document.getElementById('product-number').value = '';
+                document.getElementById('expiry-date').value = '';
+
+                alert('Data submitted successfully!');
+            } else {
+                alert('Please fill in all fields!');
+            }
+        }
+
+        function updateProductTable() {
+            const productList = document.getElementById('products-list');
+            productList.innerHTML = '';
+
+            // Sort products by expiry date
+            products.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+
+            products.forEach((product, index) => {
+                const daysRemaining = calculateDaysRemaining(product.expiry);
+
+                let rowClass = '';
+                if (daysRemaining <= 5) {
+                    rowClass = 'dark-red';
+                } else if (daysRemaining <= 15) {
+                    rowClass = 'dark-yellow';
+                } else if (daysRemaining <= 30) {
+                    rowClass = 'dark-green';
+                }
+
+                let daysRemainingText = `${daysRemaining} days`;
+                if (daysRemaining === 0) {
+                    daysRemainingText = 'Expired';
+
+                    // Copy product to expired products table only once
+                    const alreadyExpired = expiredProducts.some(expiredProduct =>
+                        expiredProduct.number === product.number &&
+                        expiredProduct.expiry === product.expiry
+                    );
+
+                    if (!alreadyExpired) {
+                        expiredProducts.push({ ...product, status: 'Expired' });
+                        localStorage.setItem('expiredProducts', JSON.stringify(expiredProducts));
+                    }
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = rowClass;
+                tr.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.number}</td>
+                    <td>${product.expiry}</td>
+                    <td>${daysRemainingText}</td>
+                    <td><button onclick="deleteProduct(${index})">Delete</button></td>
+                `;
+                productList.appendChild(tr);
+            });
+
+            localStorage.setItem('products', JSON.stringify(products));
+        }
+
+        function showExpiredProductTable() {
+            const expiredProductList = document.getElementById('expired-products-list');
+            expiredProductList.innerHTML = '';
+
+            expiredProducts.forEach((product, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.number}</td>
+                    <td>${product.expiry}</td>
+                    <td><button onclick="deleteExpiredProduct(${index})">Delete</button></td>
+                `;
+                expiredProductList.appendChild(tr);
+            });
+        }
+
+        function deleteProduct(index) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                products.splice(index, 1);
+                localStorage.setItem('products', JSON.stringify(products));
+                updateProductTable();
+            }
+        }
+        function deleteExpiredProduct(index) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                expiredProducts.splice(index, 1);
+                localStorage.setItem('expiredProducts', JSON.stringify(expiredProducts));
+                showExpiredProductTable();
+            }
+        }
+
+        function searchProduct() {
+            const number = document.getElementById('search-number').value;
+            const searchResults = document.getElementById('search-results');
+            searchResults.innerHTML = '';
+
+            const result = products.filter(product => product.number === number);
+
+            if (result.length === 0) {
+                searchResults.innerHTML = '<tr><td colspan="4">No product found with this number</td></tr>';
+                return;
+            }
+
+            result.forEach(product => {
+                const daysRemaining = calculateDaysRemaining(product.expiry);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${product.name}</td>
+                    <td>${product.number}</td>
+                    <td>${product.expiry}</td>
+                    <td>${daysRemaining} days</td>
+                `;
+                searchResults.appendChild(tr);
+            });
+        }
+
+        function calculateDaysRemaining(expiryDate) {
+            const today = new Date();
+            const expiry = new Date(expiryDate);
+            const timeDiff = expiry - today;
+            return Math.ceil(timeDiff / (1000 * 3600 * 24));
+        }
+
+        function goBack() {
+            document.getElementById('main-menu').classList.remove('hidden');
+            document.getElementById('add-product').classList.add('hidden');
+            document.getElementById('view-products').classList.add('hidden');
+            document.getElementById('expired-products').classList.add('hidden');
+            document.getElementById('search').classList.add('hidden');
+        }
+
+        // Initialize the product and expired product tables on page load
+        updateProductTable();
+        showExpiredProductTable();
+    </script>
+</body>
+</html>
